@@ -42,6 +42,24 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
                 listenerRegistrations.put(handle, getQuery(arguments).addSnapshotListener(observer))
                 result.success(handle)
             }
+            "Query#addDocumentListener" -> {
+                val arguments = call.arguments<Map<String, Any>>()
+                val handle = nextHandle++
+                val observer = DocumentObserver(handle)
+                documentObservers.put(handle, observer)
+                listenerRegistrations.put(
+                        handle, getDocumentReference(arguments).addSnapshotListener(observer))
+                result.success(handle)
+            }
+            "Query#removeListener" -> {
+                val arguments = call.arguments<Map<String, Any>>()
+                // TODO(arthurthompson): find out why removeListener is sometimes called without handle.
+                val handle = arguments["handle"] as Int
+                listenerRegistrations.get(handle).remove()
+                listenerRegistrations.remove(handle)
+                observers.remove(handle)
+                result.success(null)
+            }
             else -> result.notImplemented()
         }
     }
