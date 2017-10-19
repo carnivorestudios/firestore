@@ -10,7 +10,7 @@ part of firebase_firestore;
 class Firestore {
   @visibleForTesting
   static const MethodChannel channel = const MethodChannel(
-    'plugins.flutter.io/firebase_firestore',
+    'firestore',
   );
 
   static final Map<int, StreamController<QuerySnapshot>> _queryObservers =
