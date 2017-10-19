@@ -1,6 +1,7 @@
 package com.chq.firestore
 
 import com.google.firebase.firestore.CollectionReference
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -32,5 +33,10 @@ class FirestorePlugin() : MethodCallHandler {
     private fun getCollectionReference(arguments: Map<String, Any>): CollectionReference {
         val path = arguments["path"] as String
         return FirebaseFirestore.getInstance().collection(path)
+    }
+
+    private fun getDocumentReference(arguments: Map<String, Any>): DocumentReference {
+        val path = arguments["path"] as String
+        return FirebaseFirestore.getInstance().document(path)
     }
 }
