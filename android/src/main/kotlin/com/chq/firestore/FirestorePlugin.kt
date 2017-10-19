@@ -21,10 +21,15 @@ class FirestorePlugin() : MethodCallHandler {
     }
 
     override fun onMethodCall(call: MethodCall, result: Result): Unit {
-        if (call.method.equals("getPlatformVersion")) {
-            result.success("Android ${android.os.Build.VERSION.RELEASE}")
-        } else {
-            result.notImplemented()
+        when (call.method) {
+            "DocumentReference#setData" -> {
+                val arguments = call.arguments<Map<String, Any>>()
+                val documentReference = getDocumentReference(arguments)
+                val data = arguments["data"] as Any
+                documentReference.set(data)
+                result.success(null)
+            }
+            else -> result.notImplemented()
         }
     }
 
