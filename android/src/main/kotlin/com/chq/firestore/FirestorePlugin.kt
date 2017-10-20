@@ -89,24 +89,16 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
             val arguments = HashMap<String, Any>()
             arguments.put("handle", handle)
 
-            val documents = querySnapshot.documents.map { it.data }
+            val documents = querySnapshot.documents.map(::documentSnapshotToMap)
             arguments.put("documents", documents)
 
             val documentChanges = ArrayList<Map<String, Any>>()
             for (documentChange in querySnapshot.documentChanges) {
                 val change = HashMap<String, Any>()
-                val type = when (documentChange.type) {
-                    DocumentChange.Type.ADDED -> "DocumentChangeType.added"
-                    DocumentChange.Type.MODIFIED -> "DocumentChangeType.modified"
-                    DocumentChange.Type.REMOVED -> "DocumentChangeType.removed"
-                }
-                change.put("type", type)
+                change.put("type", documentChange.type.ordinal)
                 change.put("oldIndex", documentChange.oldIndex)
                 change.put("newIndex", documentChange.newIndex)
-                //        DocumentSnapshot doc = documentChange.getDocument();
-                //        Map<String, Object> docData = doc.getData();
-                //        docData.put("key", doc.getId());
-                change.put("document", documentChange.document.data)
+                change.put("document", documentSnapshotToMap(documentChange.document))
                 documentChanges.add(change)
             }
             arguments.put("documentChanges", documentChanges)

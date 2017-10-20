@@ -12,8 +12,11 @@ part of firestore;
 class DocumentSnapshot {
   /// Contains all the data of this snapshot
   final Map<String, dynamic> data;
+  final String id;
 
-  DocumentSnapshot._(this.data);
+  DocumentSnapshot._(Map<String, dynamic> map)
+      : this.data = map["data"],
+        this.id = map["id"];
 
   /// Reads individual values from the snapshot
   dynamic operator [](String key) => data[key];

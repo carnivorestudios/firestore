@@ -27,9 +27,7 @@ class DocumentChange {
       : oldIndex = data['oldIndex'],
         newIndex = data['newIndex'],
         document = new DocumentSnapshot._(data['document']),
-        type = DocumentChangeType.values.firstWhere((DocumentChangeType type) {
-          return type.toString() == data['type'];
-        });
+        type = DocumentChangeType.values[data['type'] as int];
 
   /// The type of change that occurred (added, modified, or removed).
   final DocumentChangeType type;
