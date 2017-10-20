@@ -2,17 +2,17 @@ package com.chq.firestore
 
 import android.util.SparseArray
 import com.google.firebase.firestore.*
+import com.google.firebase.firestore.EventListener
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.PluginRegistry.Registrar
-import java.util.ArrayList
-import java.util.HashMap
+import java.util.*
 
 class FirestorePlugin internal constructor(private val channel: MethodChannel) : MethodCallHandler {
     private var nextHandle = 0
-    private val observers = SparseArray<EventObserver>()
+    private val queryObservers = SparseArray<QueryObserver>()
     private val documentObservers = SparseArray<DocumentObserver>()
     private val listenerRegistrations = SparseArray<ListenerRegistration>()
 
@@ -37,8 +37,8 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
             "Query#addSnapshotListener" -> {
                 val arguments = call.arguments<Map<String, Any>>()
                 val handle = nextHandle++
-                val observer = EventObserver(handle)
-                observers.put(handle, observer)
+                val observer = QueryObserver(handle)
+                queryObservers.put(handle, observer)
                 listenerRegistrations.put(handle, getQuery(arguments).addSnapshotListener(observer))
                 result.success(handle)
             }
@@ -51,13 +51,20 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
                         handle, getDocumentReference(arguments).addSnapshotListener(observer))
                 result.success(handle)
             }
-            "Query#removeListener" -> {
+            "Query#removeQueryListener" -> {
                 val arguments = call.arguments<Map<String, Any>>()
-                // TODO(arthurthompson): find out why removeListener is sometimes called without handle.
                 val handle = arguments["handle"] as Int
                 listenerRegistrations.get(handle).remove()
                 listenerRegistrations.remove(handle)
-                observers.remove(handle)
+                queryObservers.remove(handle)
+                result.success(null)
+            }
+            "Query#removeDocumentListener" -> {
+                val arguments = call.arguments<Map<String, Any>>()
+                val handle = arguments["handle"] as Int
+                listenerRegistrations.get(handle).remove()
+                listenerRegistrations.remove(handle)
+                documentObservers.remove(handle)
                 result.success(null)
             }
             else -> result.notImplemented()
@@ -76,7 +83,7 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
     }
 
 
-    private inner class EventObserver internal constructor(private val handle: Int) : EventListener<QuerySnapshot> {
+    private inner class QueryObserver internal constructor(private val handle: Int) : EventListener<QuerySnapshot> {
 
         override fun onEvent(querySnapshot: QuerySnapshot, e: FirebaseFirestoreException?) {
             val arguments = HashMap<String, Any>()

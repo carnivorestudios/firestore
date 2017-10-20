@@ -51,7 +51,7 @@ class DocumentReference {
       onCancel: () {
         _handle.then((int handle) async {
           await Firestore.channel.invokeMethod(
-            'Query#removeListener',
+            'Query#removeDocumentListener',
             <String, dynamic>{'handle': handle},
           );
           Firestore._queryObservers.remove(handle);
