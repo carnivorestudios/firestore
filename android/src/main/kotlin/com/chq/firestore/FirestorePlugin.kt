@@ -114,14 +114,16 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
         val limit = parameters?.get("limit") as? Int
         val orderBy = parameters?.get("orderBy") as? String
         val descending = parameters?.get("descending") as? Boolean
-        val startAt = parameters?.get("startAt") as? String
-        val endAt = parameters?.get("endAt") as? String
+        val startAtId = parameters?.get("startAtId") as? String
+        val endAtId = parameters?.get("endAtId") as? String
 
         var query: Query = getCollectionReference(arguments)
 
         if (limit != null) query = query.limit(limit.toLong())
         if (orderBy != null && descending != null) query = query.orderBy(orderBy, if (descending) Query.Direction.DESCENDING else Query.Direction.ASCENDING)
         if (orderBy != null && descending == null) query = query.orderBy(orderBy)
+
+        
         if (startAt != null) query = query.startAt(startAt)
         if (endAt != null) query = query.endAt(endAt)
 
