@@ -51,20 +51,4 @@ class Firestore {
     assert(path != null);
     return new DocumentReference._(this, path.split('/'));
   }
-
-  Query query(String path, String orderBy, String startAt, int limit) {
-    assert(path != null);
-    if ((startAt != null) || limit != null) {
-      assert(orderBy != null);
-    }
-    Map<String, dynamic> parameters = <String, dynamic>{
-      'orderBy': orderBy,
-      'startAt': startAt,
-      'limit': limit
-    };
-    return new Query._(
-        firestore: this,
-        pathComponents: path.split('/'),
-        parameters: parameters);
-  }
 }

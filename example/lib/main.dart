@@ -37,7 +37,8 @@ class MyHomePage extends StatelessWidget {
   }
 
   Future<Null> _addMessage() async {
-    final DocumentReference ref = Firestore.instance.collection('books').document();
+    final DocumentReference ref =
+        Firestore.instance.collection('books').document();
     ref.setData(<String, String>{
       'message': 'Hello world!',
       'id': ref.path.split("/").last
@@ -49,7 +50,7 @@ class _BookListState extends State<BookList> {
   ListModel<String> _bookList;
   StreamSubscription<QuerySnapshot> _bookSub;
   final GlobalKey<AnimatedListState> _listKey =
-  new GlobalKey<AnimatedListState>();
+      new GlobalKey<AnimatedListState>();
 
   @override
   Widget build(BuildContext context) {
@@ -73,19 +74,26 @@ class _BookListState extends State<BookList> {
       removedItemBuilder: _buildRemovedItem,
     );
     _bookSub = Firestore.instance
-        .collection('books')
+        .collection('books', parameters: <String, dynamic>{
+//          "startAt": "foo",
+          "limit": 12,
+//          "endAt": "bar",
+          "orderBy": "id",
+          "descending": true,
+        })
         .snapshots
         .listen((QuerySnapshot snap) {
-      setState(() {
-        snap.documentChanges.forEach((docChange) {
-          if (docChange.type == DocumentChangeType.added) {
-            _bookList.insert(docChange.newIndex, docChange.document.data["id"]);
-          } else if (docChange.type == DocumentChangeType.removed) {
-            _bookList.removeAt(docChange.oldIndex);
-          }
+          setState(() {
+            snap.documentChanges.forEach((docChange) {
+              if (docChange.type == DocumentChangeType.added) {
+                _bookList.insert(
+                    docChange.newIndex, docChange.document.data["id"]);
+              } else if (docChange.type == DocumentChangeType.removed) {
+                _bookList.removeAt(docChange.oldIndex);
+              }
+            });
+          });
         });
-      });
-    });
   }
 
   // Used to build list items that haven't been removed.
@@ -103,10 +111,10 @@ class _BookListState extends State<BookList> {
   // The widget will be used by the [AnimatedListState.removeItem] method's
   // [AnimatedListRemovedItemBuilder] parameter.
   Widget _buildRemovedItem(
-      String item,
-      BuildContext context,
-      Animation<double> animation,
-      ) {
+    String item,
+    BuildContext context,
+    Animation<double> animation,
+  ) {
     return new BookWidget(
       animation: animation,
       bookModel: item,

@@ -36,6 +36,7 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
             }
             "Query#addSnapshotListener" -> {
                 val arguments = call.arguments<Map<String, Any>>()
+
                 val handle = nextHandle++
                 val observer = QueryObserver(handle)
                 queryObservers.put(handle, observer)
@@ -107,7 +108,25 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
         }
     }
 
-    private fun getQuery(arguments: Map<String, Any>): Query = getCollectionReference(arguments)
+    private fun getQuery(arguments: Map<String, Any>): Query {
+        val parameters = arguments["parameters"] as Map<*, *>?
+
+        val limit = parameters?.get("limit") as? Int
+        val orderBy = parameters?.get("orderBy") as? String
+        val descending = parameters?.get("descending") as? Boolean
+        val startAt = parameters?.get("startAt") as? String
+        val endAt = parameters?.get("endAt") as? String
+
+        var query: Query = getCollectionReference(arguments)
+
+        if (limit != null) query = query.limit(limit.toLong())
+        if (orderBy != null && descending != null) query = query.orderBy(orderBy, if (descending) Query.Direction.DESCENDING else Query.Direction.ASCENDING)
+        if (orderBy != null && descending == null) query = query.orderBy(orderBy)
+        if (startAt != null) query = query.startAt(startAt)
+        if (endAt != null) query = query.endAt(endAt)
+
+        return query
+    }
 
     private fun getCollectionReference(arguments: Map<String, Any>): CollectionReference {
         val path = arguments["path"] as String
@@ -119,5 +138,3 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
         return FirebaseFirestore.getInstance().document(path)
     }
 }
-
-
