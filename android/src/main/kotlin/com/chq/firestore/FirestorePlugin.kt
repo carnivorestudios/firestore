@@ -1,6 +1,7 @@
 package com.chq.firestore
 
 import android.util.SparseArray
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.firestore.*
 import com.google.firebase.firestore.EventListener
 import io.flutter.plugin.common.MethodCall
@@ -29,19 +30,58 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
         when (call.method) {
             "DocumentReference#setData" -> {
                 val arguments = call.arguments<Map<String, Any>>()
-                val documentReference = getDocumentReference(arguments)
+                val documentReference = getDocumentReference(arguments["path"] as String)
                 val data = arguments["data"] as Any
                 documentReference.set(data)
                 result.success(null)
             }
             "Query#addSnapshotListener" -> {
                 val arguments = call.arguments<Map<String, Any>>()
+                val path = arguments["path"] as String
 
-                val handle = nextHandle++
-                val observer = QueryObserver(handle)
-                queryObservers.put(handle, observer)
-                listenerRegistrations.put(handle, getQuery(arguments).addSnapshotListener(observer))
-                result.success(handle)
+                val parameters = arguments["parameters"] as Map<*, *>?
+
+                val limit = parameters?.get("limit") as? Int
+                val orderBy = parameters?.get("orderBy") as? String
+                val descending = parameters?.get("descending") as? Boolean
+                val startAtId = parameters?.get("startAtId") as? String
+                val endAtId = parameters?.get("endAtId") as? String
+
+                if (startAtId != null && endAtId != null) {
+                    val startAtTask = FirebaseFirestore.getInstance().document("$path/$startAtId").get()
+                    val endAtTask = FirebaseFirestore.getInstance().document("$path/$endAtId").get()
+
+                    Tasks.whenAll(startAtTask, endAtTask).addOnCompleteListener {
+                        val startAtSnap: DocumentSnapshot = startAtTask.result
+                        val endAtSnap: DocumentSnapshot = endAtTask.result
+
+                        if (!startAtSnap.exists()) result.error("ERR", "Error retrieving document with ID $startAtId", null)
+                        if (!endAtSnap.exists()) result.error("ERR", "Error retrieving document with ID $endAtId", null)
+
+                        registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, startAt = startAtSnap, endAt = endAtSnap)
+
+
+                    }
+                } else if (startAtId != null) {
+                    val startAtTask = FirebaseFirestore.getInstance().document("$path/$startAtId").get()
+                    Tasks.whenAll(startAtTask).addOnCompleteListener {
+                        val startAtSnap: DocumentSnapshot = startAtTask.result
+                        if (!startAtSnap.exists()) result.error("ERR", "Error retrieving document with ID $startAtId", null)
+
+                        registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, startAt = startAtSnap)
+                    }
+
+                } else if (endAtId != null) {
+                    val endAtTask = FirebaseFirestore.getInstance().document("$path/$endAtId").get()
+                    Tasks.whenAll(endAtTask).addOnCompleteListener {
+                        val endAtSnap: DocumentSnapshot = endAtTask.result
+                        if (!endAtSnap.exists()) result.error("ERR", "Error retrieving document with ID $endAtId", null)
+                        registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, endAt = endAtSnap)
+                    }
+                } else {
+                    registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending)
+                }
+
             }
             "Query#addDocumentListener" -> {
                 val arguments = call.arguments<Map<String, Any>>()
@@ -49,7 +89,7 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
                 val observer = DocumentObserver(handle)
                 documentObservers.put(handle, observer)
                 listenerRegistrations.put(
-                        handle, getDocumentReference(arguments).addSnapshotListener(observer))
+                        handle, getDocumentReference(arguments["path"] as String).addSnapshotListener(observer))
                 result.success(handle)
             }
             "Query#removeQueryListener" -> {
@@ -70,6 +110,30 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
             }
             else -> result.notImplemented()
         }
+    }
+
+    private fun registerSnapshotListener(
+            result: Result,
+            path: String,
+            limit: Int?,
+            orderBy: String?,
+            descending: Boolean?,
+            startAt: DocumentSnapshot? = null,
+            endAt: DocumentSnapshot? = null
+    ) {
+        val handle = nextHandle++
+        val observer = QueryObserver(handle)
+        val query = getQuery(
+                path = path,
+                limit = limit,
+                orderBy = orderBy,
+                descending = descending,
+                startAt = startAt,
+                endAt = endAt)
+
+        queryObservers.put(handle, observer)
+        listenerRegistrations.put(handle, query.addSnapshotListener(observer))
+        result.success(handle)
     }
 
     private inner class DocumentObserver internal constructor(private val handle: Int) : EventListener<DocumentSnapshot> {
@@ -108,35 +172,27 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
         }
     }
 
-    private fun getQuery(arguments: Map<String, Any>): Query {
-        val parameters = arguments["parameters"] as Map<*, *>?
+    private fun getQuery(
+            path: String,
+            limit: Int?,
+            orderBy: String?,
+            descending: Boolean?,
+            startAt: DocumentSnapshot?,
+            endAt: DocumentSnapshot?): Query {
 
-        val limit = parameters?.get("limit") as? Int
-        val orderBy = parameters?.get("orderBy") as? String
-        val descending = parameters?.get("descending") as? Boolean
-        val startAtId = parameters?.get("startAtId") as? String
-        val endAtId = parameters?.get("endAtId") as? String
-
-        var query: Query = getCollectionReference(arguments)
+        var query: Query = getCollectionReference(path)
 
         if (limit != null) query = query.limit(limit.toLong())
         if (orderBy != null && descending != null) query = query.orderBy(orderBy, if (descending) Query.Direction.DESCENDING else Query.Direction.ASCENDING)
         if (orderBy != null && descending == null) query = query.orderBy(orderBy)
 
-        
         if (startAt != null) query = query.startAt(startAt)
         if (endAt != null) query = query.endAt(endAt)
 
         return query
     }
 
-    private fun getCollectionReference(arguments: Map<String, Any>): CollectionReference {
-        val path = arguments["path"] as String
-        return FirebaseFirestore.getInstance().collection(path)
-    }
+    private fun getCollectionReference(path: String): CollectionReference = FirebaseFirestore.getInstance().collection(path)
 
-    private fun getDocumentReference(arguments: Map<String, Any>): DocumentReference {
-        val path = arguments["path"] as String
-        return FirebaseFirestore.getInstance().document(path)
-    }
+    private fun getDocumentReference(path: String):DocumentReference = FirebaseFirestore.getInstance().document(path)
 }
