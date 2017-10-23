@@ -1,6 +1,7 @@
 package com.chq.firestore
 
 import android.util.SparseArray
+import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.firestore.*
 import com.google.firebase.firestore.EventListener
@@ -47,46 +48,30 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
                 val startAtId = parameters?.get("startAtId") as? String
                 val endAtId = parameters?.get("endAtId") as? String
 
-                if (startAtId != null && endAtId != null) {
-                    val startAtTask = getDocumentReference("$path/$startAtId").get()
-                    val endAtTask = getDocumentReference("$path/$endAtId").get()
+                val startAtTask: Task<DocumentSnapshot?> =
+                        if (startAtId != null) getDocumentReference("$path/$startAtId").get()
+                        else Tasks.forResult(null)
 
-                    Tasks.whenAll(startAtTask, endAtTask).addOnSuccessListener {
-                        val startAtSnap: DocumentSnapshot = startAtTask.result
-                        val endAtSnap: DocumentSnapshot = endAtTask.result
+                val endAtTask: Task<DocumentSnapshot?> =
+                        if (endAtId != null) getDocumentReference("$path/$endAtId").get()
+                        else Tasks.forResult(null)
 
-                        if (!startAtSnap.exists()) resultErrorForDocumentId(result, startAtId)
-                        if (!endAtSnap.exists()) resultErrorForDocumentId(result, endAtId)
+                Tasks.whenAll(startAtTask, endAtTask).addOnSuccessListener {
+                    val startAtSnap: DocumentSnapshot? = startAtTask.result
+                    val endAtSnap: DocumentSnapshot? = endAtTask.result
 
+                    if (startAtId != null && startAtSnap != null && !startAtSnap.exists()) {
+                        resultErrorForDocumentId(result, startAtId)
+                    } else if (endAtId != null && endAtSnap != null && !endAtSnap.exists()) {
+                        resultErrorForDocumentId(result, endAtId)
+                    } else {
                         registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, startAt = startAtSnap, endAt = endAtSnap)
-                    }.addOnFailureListener {
-                        resultErrorForDocumentId(result, startAtId)
-                        resultErrorForDocumentId(result, endAtId)
                     }
-                } else if (startAtId != null) {
-                    val startAtTask = getDocumentReference("$path/$startAtId").get()
-                    Tasks.whenAll(startAtTask).addOnSuccessListener {
-                        val startAtSnap: DocumentSnapshot = startAtTask.result
-                        if (!startAtSnap.exists()) resultErrorForDocumentId(result, startAtId)
 
-                        registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, startAt = startAtSnap)
-                    }.addOnFailureListener {
-                        resultErrorForDocumentId(result, startAtId)
-                    }
-                } else if (endAtId != null) {
-                    val endAtTask = getDocumentReference("$path/$endAtId").get()
-                    Tasks.whenAll(endAtTask).addOnSuccessListener {
-                        val endAtSnap: DocumentSnapshot = endAtTask.result
-                        if (!endAtSnap.exists()) resultErrorForDocumentId(result, endAtId)
-
-                        registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, endAt = endAtSnap)
-                    }.addOnFailureListener {
-                        resultErrorForDocumentId(result, endAtId)
-                    }
-                } else {
-                    registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending)
+                }.addOnFailureListener {
+                    if (startAtId != null) resultErrorForDocumentId(result, startAtId)
+                    if (endAtId != null) resultErrorForDocumentId(result, endAtId)
                 }
-
             }
             "Query#addDocumentListener" -> {
                 val arguments = call.arguments<Map<String, Any>>()
