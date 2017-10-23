@@ -41,7 +41,8 @@ class MyHomePage extends StatelessWidget {
         Firestore.instance.collection('books').document();
     ref.setData(<String, String>{
       'message': 'Hello world!',
-      'id': ref.path.split("/").last
+      'id': ref.path.split("/").last,
+      'timestamp': ServerValue.timestamp,
     });
   }
 }

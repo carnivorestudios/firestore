@@ -32,8 +32,19 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
             "DocumentReference#setData" -> {
                 val arguments = call.arguments<Map<String, Any>>()
                 val documentReference = getDocumentReference(arguments["path"] as String)
-                val data = arguments["data"] as Any
-                documentReference.set(data)
+                val data = arguments["data"] as Map<*, *>
+
+                val newValues = HashMap<String, Any>()
+
+                data.entries.forEach {
+                    if (it.value == ".sv") {
+                        newValues[it.key as String] = FieldValue.serverTimestamp()
+                    } else {
+                        newValues[it.key as String] = it.value as Any
+                    }
+                }
+                documentReference.set(newValues)
+
                 result.success(null)
             }
             "Query#addSnapshotListener" -> {
