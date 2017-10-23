@@ -75,9 +75,9 @@ class _BookListState extends State<BookList> {
     );
     _bookSub = Firestore.instance
         .collection('books', parameters: <String, dynamic>{
-          "startAtId": "foo",
+          "startAtId": "-KwvsbUPmlKxVPTLnYJG",
           "limit": 12,
-//          "endAtId": "bar",
+          "endAtId": "-Kwvs_BSnxFwXmRR-Vtb",
           "orderBy": "id",
           "descending": true,
         })

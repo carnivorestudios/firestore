@@ -48,35 +48,40 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
                 val endAtId = parameters?.get("endAtId") as? String
 
                 if (startAtId != null && endAtId != null) {
-                    val startAtTask = FirebaseFirestore.getInstance().document("$path/$startAtId").get()
-                    val endAtTask = FirebaseFirestore.getInstance().document("$path/$endAtId").get()
+                    val startAtTask = getDocumentReference("$path/$startAtId").get()
+                    val endAtTask = getDocumentReference("$path/$endAtId").get()
 
-                    Tasks.whenAll(startAtTask, endAtTask).addOnCompleteListener {
+                    Tasks.whenAll(startAtTask, endAtTask).addOnSuccessListener {
                         val startAtSnap: DocumentSnapshot = startAtTask.result
                         val endAtSnap: DocumentSnapshot = endAtTask.result
 
-                        if (!startAtSnap.exists()) result.error("ERR", "Error retrieving document with ID $startAtId", null)
-                        if (!endAtSnap.exists()) result.error("ERR", "Error retrieving document with ID $endAtId", null)
+                        if (!startAtSnap.exists()) resultErrorForDocumentId(result, startAtId)
+                        if (!endAtSnap.exists()) resultErrorForDocumentId(result, endAtId)
 
                         registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, startAt = startAtSnap, endAt = endAtSnap)
-
-
+                    }.addOnFailureListener {
+                        resultErrorForDocumentId(result, startAtId)
+                        resultErrorForDocumentId(result, endAtId)
                     }
                 } else if (startAtId != null) {
-                    val startAtTask = FirebaseFirestore.getInstance().document("$path/$startAtId").get()
-                    Tasks.whenAll(startAtTask).addOnCompleteListener {
+                    val startAtTask = getDocumentReference("$path/$startAtId").get()
+                    Tasks.whenAll(startAtTask).addOnSuccessListener {
                         val startAtSnap: DocumentSnapshot = startAtTask.result
-                        if (!startAtSnap.exists()) result.error("ERR", "Error retrieving document with ID $startAtId", null)
+                        if (!startAtSnap.exists()) resultErrorForDocumentId(result, startAtId)
 
                         registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, startAt = startAtSnap)
+                    }.addOnFailureListener {
+                        resultErrorForDocumentId(result, startAtId)
                     }
-
                 } else if (endAtId != null) {
-                    val endAtTask = FirebaseFirestore.getInstance().document("$path/$endAtId").get()
-                    Tasks.whenAll(endAtTask).addOnCompleteListener {
+                    val endAtTask = getDocumentReference("$path/$endAtId").get()
+                    Tasks.whenAll(endAtTask).addOnSuccessListener {
                         val endAtSnap: DocumentSnapshot = endAtTask.result
-                        if (!endAtSnap.exists()) result.error("ERR", "Error retrieving document with ID $endAtId", null)
+                        if (!endAtSnap.exists()) resultErrorForDocumentId(result, endAtId)
+
                         registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending, endAt = endAtSnap)
+                    }.addOnFailureListener {
+                        resultErrorForDocumentId(result, endAtId)
                     }
                 } else {
                     registerSnapshotListener(result, path, limit = limit, orderBy = orderBy, descending = descending)
@@ -192,7 +197,8 @@ class FirestorePlugin internal constructor(private val channel: MethodChannel) :
         return query
     }
 
+    private fun resultErrorForDocumentId(result: Result, id: String) = result.error("ERR", "Error retrieving document with ID $id", null)
     private fun getCollectionReference(path: String): CollectionReference = FirebaseFirestore.getInstance().collection(path)
 
-    private fun getDocumentReference(path: String):DocumentReference = FirebaseFirestore.getInstance().document(path)
+    private fun getDocumentReference(path: String): DocumentReference = FirebaseFirestore.getInstance().document(path)
 }
